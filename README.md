@@ -1,69 +1,127 @@
-[![Artifact Validation](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions/workflows/validate-artifacts.yml/badge.svg)](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions/workflows/validate-artifacts.yml)
-
 # Indian City AQI Prediction
 
-An exploratory time-series forecasting project developed for an H2O.ai hackathon. The repository contains AQI training data, exploratory data analysis, and notebooks comparing ARIMA-family models with Prophet.
+[![Artifact validation](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions/workflows/validate-artifacts.yml/badge.svg)](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions/workflows/validate-artifacts.yml)
 
-## Problem
+A time-series forecasting and evaluation project exploring air-quality trends across Indian city/station series. The repository combines exploratory notebooks with reproducible chronological baselines to establish a transparent reference for future model comparisons.
 
-Air Quality Index (AQI) forecasting can help communicate potential changes in air quality. This project explores historical AQI data and environmental features for Indian cities, with a focus on time-series approaches.
+> **Research/demo only.** This repository is not a live AQI service. Predictions are not a substitute for official measurements, alerts, or public-health guidance.
 
-## Repository contents
+## At a glance
 
-- `dataset/train.csv` — training dataset
-- `dataset/sample_submission.csv` — sample submission format
-- `Notebooks/Data Analysis-EDA.ipynb` — exploratory analysis notebook
-- `Notebooks/ARIMA .ipynb` — time-series forecasting experiments
-- `H2o_models/` and `output_file/` — supporting project artifacts
+| Area | Current state |
+|---|---|
+| Problem | Explore historical AQI forecasting across multiple city/station series |
+| Data | Repository training CSV and sample-submission template |
+| Methods explored | ARIMA, SARIMAX, Prophet |
+| Reproducible baselines | Previous-observation persistence and training-partition mean |
+| Evaluation | Chronological, per-series holdout; aggregate and per-series metrics |
+| Automation | GitHub Actions runs tests, evaluates baselines, validates notebooks/data, and publishes JSON artifacts |
+| Deployment | No production service is provided |
 
-## Models explored
+## Results: reproducible persistence baseline
 
-- ARIMA
-- SARIMAX
-- Facebook Prophet
+The standard-library evaluator parses each `ID_Date` series, sorts observations chronologically, and predicts each held-out AQI value using the immediately preceding observed value from the same series.
 
-The original project notes report the following MAE values:
+| Metric | Current baseline result |
+|---|---:|
+| Held-out rows | 5,088 |
+| Series | 40 |
+| Test date range | 2022-06-16 to 2022-12-03 |
+| MAE | 28.54 |
+| RMSE | 43.42 |
 
-| Model | Reported MAE |
+The evaluator also writes per-series held-out row counts, MAE, RMSE, and test date coverage to `baseline_metrics.json`. These results are a **persistence baseline**, not a model leaderboard or evidence of production forecasting quality.
+
+## Baseline comparison
+
+`compare_baselines.py` evaluates two simple methods on the same chronological holdout:
+
+- **Previous observation:** predicts the next value using the immediately preceding observation in that series.
+- **Training mean:** predicts each held-out value using the mean AQI from that series' training partition only.
+
+It reports MAE and RMSE for both methods, the winning baseline by each metric, and the shared evaluation coverage in `baseline_comparison.json`. The held-out targets are not used to fit either baseline.
+
+## Historical notebook metrics (not independently validated)
+
+| Model | Historical MAE noted in the project |
 |---|---:|
 | Prophet | 528.99 |
 | SARIMAX | 36.89 |
 | ARIMA with Box–Cox transformation | 32 |
 
-These are historical values recorded in the project notes, not independently reproduced results. The repository notes do not fully document the evaluation split, target scale, or leakage checks, so the values should not be treated as a validated benchmark until the experiments are rerun under a clearly defined protocol.
+The older values are retained as historical notes only. Their original evaluation protocol does not fully specify the split, target scale, forecast horizon, or leakage checks. Do not compare them directly with the baselines above until all models are rerun on the same chronological holdout and target scale.
 
-## Explore the notebooks
+## Repository guide
 
-1. Clone or download this repository.
-2. Open the notebooks in Jupyter Notebook or JupyterLab.
-3. Review the import cells at the top of each notebook and install the required Python packages.
-4. Run the data preparation and modeling cells in order.
-5. Before comparing models, verify the time-based train/test split, target units, missing-value handling, and that future information is not used during training.
+| Path | Purpose |
+|---|---|
+| `dataset/train.csv` | Training data used by the baseline evaluators |
+| `dataset/sample_submission.csv` | Submission-format example |
+| `Notebooks/Data Analysis-EDA.ipynb` | Exploratory data analysis |
+| `Notebooks/ARIMA .ipynb` | ARIMA-family forecasting experiments |
+| `H2o_models/` | Supporting model artifacts |
+| `output_file/` | Existing output artifacts |
+| `evaluate_baseline.py` | Per-series chronological persistence evaluator |
+| `compare_baselines.py` | Same-holdout comparison of persistence and training-mean baselines |
+| `test_evaluate_baseline.py` | Evaluator unit tests |
+| `test_compare_baselines.py` | Baseline-comparison unit tests |
+| `.github/workflows/validate-artifacts.yml` | CI for tests, evaluation, notebooks, data, and result artifacts |
 
-A standard-library evaluation script now measures a previous-observation persistence baseline with a chronological holdout split per `ID_Date` series. CI runs the baseline and its unit tests, validates the notebooks and dataset structure, and publishes the generated `baseline_metrics.json` as a commit-specific artifact for 30 days. See the [CI run history](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions) to inspect a run and download its artifact. The script is intentionally a baseline, not a reproduction of the ARIMA/SARIMAX/Prophet experiments; the original model metrics remain unverified.
+## Quick start
 
-## Reproducible baseline evaluation
+**Requirements:** Python 3.10 or newer. The baseline evaluators and tests use only the Python standard library.
 
-Run from the repository root with Python 3.10+ (standard library only):
+From the repository root:
 
 ```bash
-python -m unittest -v test_evaluate_baseline.py
+python -m unittest -v test_evaluate_baseline.py test_compare_baselines.py
 python evaluate_baseline.py --data dataset/train.csv --output baseline_metrics.json
+python compare_baselines.py --data dataset/train.csv --output baseline_comparison.json
 ```
 
-The script parses the series key and date from `ID_Date`, rejects duplicate headers, surplus row fields, malformed CSV quoting, invalid calendar dates, and non-finite AQI values with actionable errors, sorts each series chronologically, holds out the latest 20% of rows per series, and predicts each held-out value using the immediately previous observed AQI from that same series. It reports MAE/RMSE, test date range, series count, and test row count. This avoids random splitting and cross-series carryover. The result is a persistence baseline only; it does not prove the older model results or establish a production-quality forecast.
+The JSON files contain aggregate metrics and evaluation coverage; the persistence evaluator additionally includes per-series metrics. GitHub Actions uploads both files as a commit-specific artifact retained for 30 days. See the [CI run history](https://github.com/vankudothuadhinaik/Predicting-the-AQI-of-Indian-Cities-Using-Machine-Learning/actions) to inspect a run and download its results.
 
-## Limitations and next steps
+To explore the notebooks, open them in Jupyter Notebook or JupyterLab and install the packages imported by the notebook you intend to run.
 
-- Make the time-based validation split explicit and reproducible.
-- Record the AQI target scale, forecast horizon, and evaluation period.
-- Compare models against a simple baseline and report MAE/RMSE on the same held-out period.
-- Add a pinned dependency file and a script for repeatable training/evaluation.
-- Review the notebooks for leakage and document the dataset source and license.
+## Evaluation protocol
 
-This is an educational/research project, not a deployed air-quality forecasting service. Predictions should not be used as a substitute for official AQI measurements or public-health guidance.
+The current baseline evaluation:
 
+1. Parses the stable series identifier and ISO date from `ID_Date`.
+2. Sorts observations chronologically within each series.
+3. Holds out the latest 20% of rows in each series by default (configurable from 5% to 50%).
+4. Evaluates each series independently; observations from another series are never used as the previous value.
+5. Reports aggregate MAE/RMSE and date coverage; the persistence evaluator also reports per-series MAE/RMSE, row counts, and date coverage.
 
-### Baseline result (CI run)
+The comparison script uses the same split for persistence and training-mean baselines. The training mean is calculated only from each series' training partition.
 
-On the committed training CSV, the chronological previous-observation baseline evaluated **5,088 held-out rows across 40 series** (test dates 2022-06-16 through 2022-12-03): MAE **28.54** and RMSE **43.42**. These values are reproducible for the current file and split settings; they are not directly comparable to the older reported model metrics unless those metrics used the same data, target scale, and held-out period.
+Before treating any model comparison as valid, use the same time-based split, target units, forecast horizon, and metric definitions across all models. Fit preprocessing on training data only, check missing values and duplicate timestamps, and verify that no future information enters features or transformations.
+
+## Models explored
+
+- **ARIMA** — univariate autoregressive integrated moving-average forecasting.
+- **SARIMAX** — seasonal and/or exogenous-variable time-series modeling.
+- **Prophet** — decomposable trend and seasonality modeling.
+
+The notebooks are exploratory artifacts; they are not yet a single, fully reproducible benchmark pipeline.
+
+## Roadmap
+
+- [ ] Document the dataset source, license, target units, and series semantics.
+- [ ] Pin notebook dependencies and add a repeatable training/evaluation entry point.
+- [ ] Re-run ARIMA, SARIMAX, and Prophet on the same chronological holdout.
+- [ ] Add a clear multi-step forecast horizon and compare it separately from one-step-ahead baselines.
+- [ ] Review all feature engineering and transformations for temporal leakage.
+- [ ] Record environment and configuration alongside each result.
+
+## Limitations
+
+- Historical model metrics have not been independently reproduced.
+- Dataset provenance and licensing need to be documented clearly.
+- The baselines are reference points, not complete forecasting solutions.
+- The current one-step-ahead persistence evaluation uses the previous observed value for each held-out point; it should not be interpreted as a fixed-origin multi-step forecast.
+- No live data ingestion, deployment, monitoring, or public-health alerting is included.
+
+## Contributing
+
+Keep evaluation changes reproducible: add or update tests, preserve chronological separation, avoid leakage, and document any change to the holdout protocol before comparing metrics.
