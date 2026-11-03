@@ -67,6 +67,20 @@ The older values are retained as historical notes only. Their original evaluatio
 | `test_compare_baselines.py` | Baseline-comparison unit tests |
 | `.github/workflows/validate-artifacts.yml` | CI for tests, evaluation, notebooks, data, and result artifacts |
 
+## Tools and technologies
+
+| Area | Tools |
+|---|---|
+| Language | Python |
+| Analysis | Jupyter Notebook, pandas, NumPy, Matplotlib (notebook dependencies) |
+| Forecasting experiments | ARIMA, SARIMAX, Prophet |
+| Reproducible baselines | Python standard library |
+| Evaluation | MAE, RMSE, chronological per-series holdout |
+| Testing and automation | Python `unittest`, GitHub Actions |
+| Artifacts | JSON metrics and workflow artifacts |
+
+The baseline evaluator and its tests intentionally use only the Python standard library. Notebook experiments may require additional packages; install the dependencies imported by the notebook you plan to run rather than assuming one environment covers every historical experiment.
+
 ## Quick start
 
 **Requirements:** Python 3.10 or newer. The baseline evaluators and tests use only the Python standard library.
