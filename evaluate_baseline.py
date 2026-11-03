@@ -59,33 +59,48 @@ def load_series(path: Path) -> dict[str, list[tuple[date, float]]]:
     return series
 
 
-def evaluate(series: dict[str, list[tuple[date, float]]], test_fraction: float = 0.2) -> dict[str, float | int | str]:
-    if not 0.05 <= test_fraction <= 0.5:
-        raise ValueError("test fraction must be between 0.05 and 0.5")
-    errors: list[float] = []
-    first_test_date: date | None = None
-    last_test_date: date | None = None
-    series_count = 0
-    for rows in series.values():
-        split = max(2, math.floor(len(rows) * (1.0 - test_fraction)))
-        split = min(split, len(rows) - 1)
-        # One-step-ahead persistence: predict each held-out value using only
-        # the immediately preceding observed value in the same series.
-        for index in range(split, len(rows)):
-            errors.append(rows[index][1] - rows[index - 1][1])
-            first_test_date = min(first_test_date, rows[index][0]) if first_test_date else rows[index][0]
-            last_test_date = max(last_test_date, rows[index][0]) if last_test_date else rows[index][0]
-        series_count += 1
+def _metrics(errors: list[float]) -> dict[str, float | int]:
     if not errors:
         raise ValueError("no held-out rows available")
     return {
-        "baseline": "previous_observation",
-        "series": series_count,
         "test_rows": len(errors),
-        "test_start": first_test_date.isoformat() if first_test_date else "",
-        "test_end": last_test_date.isoformat() if last_test_date else "",
         "mae": sum(abs(error) for error in errors) / len(errors),
         "rmse": math.sqrt(sum(error * error for error in errors) / len(errors)),
+    }
+
+
+def evaluate(
+    series: dict[str, list[tuple[date, float]]], test_fraction: float = 0.2
+) -> dict[str, object]:
+    if not 0.05 <= test_fraction <= 0.5:
+        raise ValueError("test fraction must be between 0.05 and 0.5")
+    all_errors: list[float] = []
+    first_test_date: date | None = None
+    last_test_date: date | None = None
+    per_series: dict[str, dict[str, object]] = {}
+    for key, rows in sorted(series.items()):
+        split = max(2, math.floor(len(rows) * (1.0 - test_fraction)))
+        split = min(split, len(rows) - 1)
+        # One-step-ahead persistence uses the previous observed value in this series.
+        errors = [rows[index][1] - rows[index - 1][1] for index in range(split, len(rows))]
+        test_dates = [rows[index][0] for index in range(split, len(rows))]
+        all_errors.extend(errors)
+        series_start, series_end = min(test_dates), max(test_dates)
+        first_test_date = min(first_test_date, series_start) if first_test_date else series_start
+        last_test_date = max(last_test_date, series_end) if last_test_date else series_end
+        per_series[key] = {
+            **_metrics(errors),
+            "test_start": series_start.isoformat(),
+            "test_end": series_end.isoformat(),
+        }
+    aggregate = _metrics(all_errors)
+    return {
+        "baseline": "previous_observation",
+        "series": len(per_series),
+        **aggregate,
+        "test_start": first_test_date.isoformat() if first_test_date else "",
+        "test_end": last_test_date.isoformat() if last_test_date else "",
+        "per_series": per_series,
     }
 
 
