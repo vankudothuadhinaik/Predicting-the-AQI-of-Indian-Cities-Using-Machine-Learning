@@ -23,9 +23,6 @@ class BaselineEvaluationTests(unittest.TestCase):
         ])
         result = evaluate(load_series(path), test_fraction=0.4)
         self.assertEqual(result["test_rows"], 2)
-        self.assertEqual(result["per_series"]["A_1"]["test_rows"], 1)
-        self.assertEqual(result["per_series"]["B_2"]["test_rows"], 1)
-        self.assertEqual(result["per_series"]["B_2"]["mae"], 0.0)
         self.assertEqual(result["test_start"], "2024-01-04")
         self.assertAlmostEqual(result["mae"], 2.5)
         self.assertAlmostEqual(result["rmse"], (8.5) ** 0.5)
@@ -41,6 +38,9 @@ class BaselineEvaluationTests(unittest.TestCase):
         result = evaluate(load_series(self.write_csv(rows)), test_fraction=0.34)
         self.assertEqual(result["series"], 2)
         self.assertEqual(result["test_rows"], 2)
+        self.assertEqual(result["per_series"]["A_1"]["test_rows"], 1)
+        self.assertEqual(result["per_series"]["B_2"]["test_rows"], 1)
+        self.assertEqual(result["per_series"]["B_2"]["mae"], 0.0)
 
     def test_rejects_malformed_id_date(self):
         path = self.write_csv([
